@@ -176,8 +176,8 @@
               [
                 "#!/bin/bash",
                 "sudo apt install awscli -y",
-                "aws s3 cp s3://xxxxx/bootstrap-xxxx.sh /home/ubuntu/",
-                "sh /home/ubuntu/bootstrap-xxxxx.sh"
+                "aws s3 cp s3://test/bootstrap-app.sh /home/ubuntu/",
+                "sh /home/ubuntu/bootstrap-app.sh"
               ]
             ]  
           }
