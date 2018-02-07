@@ -1,0 +1,29 @@
+{
+   "AWSTemplateFormatVersion": "2010-09-09",
+   "Description": "Policy to allow all the actions of lambda and cloudwatch events for a specific IAM role"
+   "Resources": {
+       "ChangeIAM": {
+		   "Type" : "AWS::IAM::Policy",
+		   "Properties" : {
+		      "PolicyName" : "access-lambda-events",
+		      "PolicyDocument" : {
+		         "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:*",
+                "lambda:*",
+                "events:*"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }  
+    ]
+		      },
+		      "Roles" : [ "xxxxxx" ]
+		   }
+		}
+	}
+}

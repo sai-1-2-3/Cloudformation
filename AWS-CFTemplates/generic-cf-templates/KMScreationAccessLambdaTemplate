@@ -1,0 +1,135 @@
+{
+ "AWSTemplateFormatVersion": "2010-09-09",
+ "Description": "KMS key creation and Lambda access to KMS"
+ "Outputs": {
+      "LambdaKMSOUTPUT":{
+          "Value": {"Ref" : "LambdaKMS"}
+        },
+      "LambdaKMSARN":{
+          "Value": { "Fn::GetAtt" : [ "LambdaKMS", "Arn" ] }    
+        }    
+  },
+  "Parameters" : { 
+    "Password": {
+      "Description": "Required: Specify Password for our SSH Cluster ",
+      "Type": "String",
+      "AllowedPattern" : "[a-zA-Z0-9]*",
+      "NoEcho": "true",
+      "Default" : "PASSWORD"
+    }
+  },
+  "Resources": {
+    "SSHKey" : {
+      "Type" : "AWS::KMS::Key",
+      "Properties" : {
+        "Description" : "SSH key ",
+        "KeyPolicy" : {
+            "Version": "2012-10-17",
+            "Id": "key-1",
+            "Statement": [
+              {
+                "Sid": "Enable IAM User Permissions",
+                "Effect": "Allow",
+                "Principal": {
+                  "AWS": "arn:aws:iam::xxxxxx:root"
+                },
+                "Action": "kms:*",
+                "Resource": "*"
+              },
+              {
+                "Sid": "Allow access for Key Administrators",
+                "Effect": "Allow",
+                "Principal": {
+                  "AWS": "arn:aws:iam::xxxxx:role/IAMroleB"
+                },
+                "Action": [
+                  "kms:Create*",
+                  "kms:Describe*",
+                  "kms:Enable*",
+                  "kms:List*",
+                  "kms:Put*",
+                  "kms:Update*",
+                  "kms:Revoke*",
+                  "kms:Disable*",
+                  "kms:Get*",
+                  "kms:Delete*",
+                  "kms:TagResource",
+                  "kms:UntagResource",
+                  "kms:ScheduleKeyDeletion",
+                  "kms:CancelKeyDeletion"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Sid": "Allow use of the key",
+                "Effect": "Allow",
+                "Principal": {
+                  "AWS": ["arn:aws:iam::xxxxxx:role/lambdaroleA","arn:aws:iam::xxxxxxxx:role/IAMroleA"]
+                },
+                "Action": [
+                  "kms:Encrypt",
+                  "kms:Decrypt",
+                  "kms:ReEncrypt*",
+                  "kms:GenerateDataKey*",
+                  "kms:DescribeKey"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Sid": "Allow attachment of persistent resources",
+                "Effect": "Allow",
+                "Principal": {
+                  "AWS": "arn:aws:iam::xxxxxx:role/lambdaroleA"
+                },
+                "Action": [
+                  "kms:CreateGrant",
+                  "kms:ListGrants",
+                  "kms:RevokeGrant"
+                ],
+                "Resource": "*",
+                "Condition": {
+                  "Bool": {
+                    "kms:GrantIsForAWSResource": "true"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "LambdaKMS": {
+        "Type": "AWS::Lambda::Function",
+        "Properties": {
+          "Code": {
+            "ZipFile" : { "Fn::Join" : ["\n", [
+                          "from __future__ import print_function",
+                          "import json",
+                          "import cfnresponse",
+                          "import boto3",
+                          "def lambda_handler(event, context):",
+                          "   client = boto3.client('kms', region_name='us-west-1')",
+                          "   response = client.encrypt(KeyId=os.environ['KMSID'], Plaintext=os.environ['PASSWORD'])",
+                          "   responseValue = response['CiphertextBlob']",
+                          "   print(responseValue)",
+                          "   responseData = {}",
+                          "   responseData['Data'] = responseValue",
+                          "   cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)"
+                        ]]}
+          },
+          "FunctionName" : "LambdaKMS",
+          "Description": "Lambda Function to mask with KMS",
+          "Handler": "lambda_function.lambda_handler",
+          "Role": "arn:aws:iam::xxxxxxxxx:role/lambdaroleA",
+          "MemorySize": 512,
+          "Timeout": 5,
+          "Runtime": "python2.7",
+          "Environment": {
+            "Variables": {
+              "KMSID": {"Ref" : "SSHKey"},
+              "PASSWORD": {"Ref" : "Password"}
+            }
+          }
+        }
+      }
+  }
+}

@@ -1,0 +1,84 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Description" : "Policy to allow ec2 and lambda roles to talk to specific s3 bucket",
+    "Resources" : {
+        "EC2ToS3Role": {
+          "Type": "AWS::IAM::Role",
+          "Properties": {
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [{
+                "Action": [
+                  "sts:AssumeRole"
+                ],
+                "Principal": {
+                  "Service": [
+                    "ec2.amazonaws.com"
+                  ]
+                },
+                "Effect": "Allow"
+              }]
+            },
+            "Policies": [ {
+              "PolicyName" : "s3-bucket-access",
+              "PolicyDocument" : {
+                      "Version": "2012-10-17",
+                      "Statement": [
+                        {
+                          "Effect": "Allow",
+                          "Action": ["s3:ListBucket"],
+                          "Resource": ["arn:aws:s3:::<s3_bucket_name>"]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "s3:PutObject",
+                            "s3:GetObject",
+                            "s3:ListObject",
+                            "s3:DeleteObject"
+                          ],
+                          "Resource": ["arn:aws:s3:::<s3_bucket_name>/*"]
+                        }
+                    ]
+                }
+            }]
+          }
+        },
+        "Ec2ToS3InstanceProfile": {
+          "Type": "AWS::IAM::InstanceProfile",
+          "Properties": {
+            "Path": "/",
+            "Roles": [{
+              "Ref": "EC2ToS3Role"
+            }]
+          }
+        },
+        "LambdaToS3Policy" : {
+          "Type" : "AWS::IAM::Policy",
+            "Properties" : {
+                "PolicyName" : "s3-bucket-access",
+                "Roles": [ "<lambda_roleA>", "<lambda_roleB>" ],
+                "PolicyDocument" : {
+                      "Version": "2012-10-17",
+                      "Statement": [
+                        {
+                          "Effect": "Allow",
+                          "Action": ["s3:ListBucket"],
+                          "Resource": ["arn:aws:s3:::<s3_bucket_name>"]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "s3:PutObject",
+                            "s3:GetObject",
+                            "s3:ListObject",
+                            "s3:DeleteObject"
+                          ],
+                          "Resource": ["arn:aws:s3:::<s3_bucket_name>/*"]
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

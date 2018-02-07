@@ -1,0 +1,103 @@
+{
+	"AWSTemplateFormatVersion" : "2010-09-09",
+	"Description" : "AWS CloudFormation Template  to create lambda functions, log groups, invoke permissions and subscription filter",
+	"Resources" : {
+	    "LambdaML" : {
+	      "Type" : "AWS::Lambda::Function",
+  		  "Properties" : {
+	        //code
+	      }
+	    },
+	    "LambdaSSH" : {
+	      "Type" : "AWS::Lambda::Function",
+  		  "Properties" : {
+	        //code
+	      }
+	    },
+	    "LambdaS3" : {
+	      "Type" : "AWS::Lambda::Function",
+  		  "Properties" : {
+	        //code
+	      }
+	    },
+	    "LambdaCloudwatch" : {
+	      "Type" : "AWS::Lambda::Function",
+  		  "Properties" : {
+	        //code
+	      }
+	    },
+        "LambdaMLLogGroup": {
+		    "Type": "AWS::Logs::LogGroup",
+		    "DependsOn": "LambdaML",
+		    "Properties": {
+		        "LogGroupName": {"Fn::Join": ["", ["/aws/lambda/", {"Ref": "LambdaML"}]]}
+		    }
+		},
+        "LambdaSSHLogGroup": {
+		    "Type": "AWS::Logs::LogGroup",
+		    "DependsOn": "LambdaSSH",
+		    "Properties": {
+		        "LogGroupName": {"Fn::Join": ["", ["/aws/lambda/", {"Ref": "LambdaSSH"}]]}
+		    }
+		},
+		"LambdaS3LogGroup": {
+		    "Type": "AWS::Logs::LogGroup",
+		    "DependsOn": "LambdaS3",
+		    "Properties": {
+		        "LogGroupName": {"Fn::Join": ["", ["/aws/lambda/", {"Ref": "LambdaS3"}]]}
+		    }
+		},
+		"LambdaMLInvokePermission": {
+			"Type": "AWS::Lambda::Permission",
+			"Properties": {
+				"FunctionName": { "Fn::GetAtt": [ "LambdaML", "Arn" ] },
+				"Action": "lambda:InvokeFunction",
+				"Principal": "logs.us-west-1.amazonaws.com",
+				"SourceArn": { "Fn::GetAtt": [ "LambdaMLLogGroup", "Arn" ] }
+			}
+		},
+		"LambdaSSHInvokePermission": {
+			"Type": "AWS::Lambda::Permission",
+			"Properties": {
+				"FunctionName": { "Fn::GetAtt": [ "LambdaSSH", "Arn" ] },
+				"Action": "lambda:InvokeFunction",
+				"Principal": "logs.us-west-1.amazonaws.com",
+				"SourceArn": { "Fn::GetAtt": [ "LambdaSSHLogGroup", "Arn" ] }
+			}
+		},
+		"LambdaS3InvokePermission": {
+			"Type": "AWS::Lambda::Permission",
+			"Properties": {
+				"FunctionName": { "Fn::GetAtt": [ "LambdaS3", "Arn" ] },
+				"Action": "lambda:InvokeFunction",
+				"Principal": "logs.us-west-1.amazonaws.com",
+				"SourceArn": { "Fn::GetAtt": [ "LambdaS3LogGroup", "Arn" ] }
+			}
+		},
+		"LambdaMLSubscriptionFilter" : {
+		  "Type" : "AWS::Logs::SubscriptionFilter",
+		  "Properties" : {
+		    "LogGroupName" : { "Ref" : "LambdaMLLogGroup" },
+		    "FilterPattern" : "",
+		    "DestinationArn" : { "Fn::GetAtt" : [ "LambdaCloudwatch", "Arn" ] }
+		  }
+		},
+        "LambdaSSHSubscriptionFilter" : {
+		  "Type" : "AWS::Logs::SubscriptionFilter",
+		  "Properties" : {
+		    "LogGroupName" : { "Ref" : "LambdaSSHLogGroup" },
+		    "FilterPattern" : "",
+		    "DestinationArn" : { "Fn::GetAtt" : [ "LambdaCloudwatch", "Arn" ] }
+		  }
+		},
+		"LambdaS3SubscriptionFilter" : {
+		  "Type" : "AWS::Logs::SubscriptionFilter",
+		  "Properties" : {
+		    "LogGroupName" : { "Ref" : "LambdaS3LogGroup" },
+		    "FilterPattern" : "",
+		    "DestinationArn" : { "Fn::GetAtt" : [ "LambdaCloudwatch", "Arn" ] }
+		  }
+		}
+    }
+
+}

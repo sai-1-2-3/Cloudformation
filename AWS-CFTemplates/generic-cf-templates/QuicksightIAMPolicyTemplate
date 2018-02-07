@@ -1,0 +1,39 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "Add a policy to IAM role to allow quicksight to inherit the permissions",
+  "Resources" : {
+    "LambdaAssumePolicy" : {
+      "Type" : "AWS::IAM::Policy",
+        "Properties" : {
+            "PolicyName" : "Quicksight-policy",
+            "Roles": [ "<your_iam_role_name>" ],
+            "PolicyDocument" : {
+                "Version": "2012-10-17",
+                   "Statement": [
+                       {
+                           "Effect": "Allow",
+                           "Action": [
+                                "iam:AttachRolePolicy",
+                                "iam:CreatePolicy",
+                                "iam:CreatePolicyVersion",
+                                "iam:CreateRole",
+                                "iam:DeletePolicyVersion",
+                                "iam:DeleteRole",
+                                "iam:DetachRolePolicy",
+                                "iam:GetPolicy",
+                                "iam:GetPolicyVersion",
+                                "iam:GetRole",
+                                "iam:ListAttachedRolePolicies",
+                                "iam:ListEntitiesForPolicy",
+                                "iam:ListPolicyVersions",
+                                "iam:ListRoles",
+                                "s3:ListAllMyBuckets"
+                           ],
+                           "Resource": "*"
+                       }
+                  ]
+            }
+        }
+    }
+  }
+}

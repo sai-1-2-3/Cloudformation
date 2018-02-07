@@ -1,0 +1,48 @@
+{
+   "AWSTemplateFormatVersion": "2010-09-09",
+   "Description": "This is to give lambda from one account to access resources on other account",
+   "Resources": {
+      "CrossAccountPolicyRole": {
+         "Type": "AWS::IAM::Role",
+         "Properties": {
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "",
+                  "Effect": "Allow",
+                  "Principal": {
+                    "AWS": [ "arn:aws:iam::xxxxxxxx:root", "arn:aws:iam::xxxxxxxx:root"], 
+                    "Service": [ "lambda.amazonaws.com", "machinelearning.amazonaws.com" ]
+                  },
+                  "Action": "sts:AssumeRole"
+                }
+              ]
+            },
+            "Path": "/",
+            "Policies": [ {
+               "PolicyName": "CrossaccountPolicy",
+               "PolicyDocument": {
+                   "Version": "2012-10-17",
+                   "Statement": [
+                       {
+                           "Effect": "Allow",
+                           "Action": [
+                               "machinelearning:*",
+                               "ec2:CreateNetworkInterface",
+                               "ec2:DescribeNetworkInterfaces",
+                               "ec2:DeleteNetworkInterface",
+                               "s3:GetObject",
+                               "s3:PutObject",
+                               "logs:*",
+                               "SNS:*"
+                           ],
+                           "Resource": "*"
+                       }
+                  ]
+               }
+               } ]
+            }
+      }
+   }
+}

@@ -1,0 +1,33 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "Cloud Formation Template to create Amazon SNS topic and attach publish policy",
+	"Outputs": {
+    	"TopicARN":{
+      		"Value": {"Ref" : "MySNSTopic"}
+      	}  
+	},
+	"Resources":{
+		"MySNSTopic":{
+			"Type":"AWS::SNS::Topic",
+			"Properties":{
+				"TopicName" : "<TopicName>"
+			}
+		},
+		"MyPublishTopic":{
+			"Type" : "AWS::SNS::TopicPolicy",
+			"Properties":{
+				"Policies":[{
+		            "PolicyName":"MyTopicPolicy",
+		            	"PolicyDocument":{
+				            "Version":"2012-10-17",
+				            "Statement":[{
+				                "Effect" : "Allow",
+								"Action" : ["sns:Publish"],
+								"Resource" : [{"Ref" : "MySNSTopic"}]
+							}]
+						}
+		        }]
+            }
+	    }
+	}
+}

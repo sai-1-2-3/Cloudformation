@@ -1,0 +1,393 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Launching Infrastructure using ALB",
+  "Conditions": {
+    "RegionIsUsWest2": {
+      "Fn::Equals": [{
+          "Ref": "AWS::Region"
+        },
+        "us-west-2"
+      ]
+    }
+  },
+  "Mappings": {
+   "Parameters": {
+      "StackCreationTimeout": {
+        "default": "PT10M"
+      }
+    },
+    "RegionToAmi": {
+      "us-east-1": {
+        "stable": "ami-xxxx"
+      },
+      "us-west-2": {
+        "stable": "ami-xxxx"
+      },
+      "us-west-1": {
+        "stable": "ami-xxxx"
+      }
+    }
+  },
+  "Outputs": {
+    "DnsAddress": {
+      "Value": {
+        "Fn::GetAtt": [
+          "ElasticLoadBalancer",
+          "DNSName"
+        ]
+      },
+      "Description": "API LoadBalancer"
+    },
+    "RDSEndpoint": {
+      "Value": {
+        "Fn::GetAtt": ["RDSDB","Endpoint.Address"]
+      },
+      "Description": "RDS Endpoint"
+      },
+    "RDSPort": {
+      "Value": {
+        "Fn::GetAtt": ["RDSDB","Endpoint.Port"]
+      },
+      "Description": "RDS Port"  
+    },
+    "ApiGatewayURL": {
+      "Value": { "Ref": "Deployment" }
+    }
+
+  },
+  "Parameters": {
+    "Vpc": {
+      "Type": "AWS::EC2::VPC::Id",
+      "Description": "Default VPC",
+      "Default": "vpc-xxxxx"
+    },
+    "PrimarySubnets": {
+      "Type": "List<AWS::EC2::Subnet::Id>",
+      "Description": "Sub networks for EC2 instance",
+      "Default": "subnet-xxxxx, subnet-xxxxx"
+    },
+    "SecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup::Id",
+      "Description": "Specify the Security group",
+      "Default": "sg-xxxxx"
+    },
+    "InstanceType": {
+      "Type": "String",
+      "Description": "Ec2 Instance, default is t2.micro",
+      "Default": "t2.micro"
+    },
+    "KeyName": {
+      "Description": "Required: Specify your AWS EC2 Key Pair.",
+      "Type": "AWS::EC2::KeyPair::KeyName"
+    },
+    "InstanceCount": {
+      "Description": "Required: Specify the number of ec2 instances or accept the default.",
+      "Type": "Number",
+      "Default": "2"
+    },
+    "DBName": {
+      "Description": "Required: Specify Name of the DB instance",
+      "Type": "String"
+    },
+    "DBAllocatedStorage": {
+      "Description": "Required: Specify the allocated storage size, in gigabytes (GB)",
+      "Type": "String"   
+    },
+    "DBInstanceClass": {
+      "Description": "Required: Specify the type of the instance , default is db.t2.micro",
+      "Type": "String",
+      "Default": "db.t2.micro"
+    },
+    "DBInstanceIdentifier": {
+      "Description": "Required: Specify the name for identifying the instance",
+      "Type": "String",
+      "Default": "Test"
+    },
+    "DBUser": {
+      "Description": "Required: Specify Master Username for your DB instance",
+      "Type": "String"
+    },
+    "DBPassword": {
+      "Description": "Required: Specify Master Password for your DB instance",
+      "Type": "String",
+      "NoEcho": "true",
+      "MinLength" : "1",
+      "MaxLength" : "41",
+      "AllowedPattern" : "[a-zA-Z0-9]*"
+    },
+    "LogArchiveS3Bucket": {
+      "Type": "String",
+      "Description": "Log Archive S3 Bucket",
+      "Default": "test-archive-main-dev"
+    },
+    "LogArchiveS3BucketEndpoint": {
+      "Type": "String",
+      "Description": "The Endpoint Log Archive S3 Bucket, for example, s3-us-west-1.amazonaws.com for S3 Bucket in US California",
+      "Default": "s3-us-west-2.amazonaws.com"
+    },
+    "ReposS3Bucket": {
+      "Type": "String",
+      "Description": "Software Repository S3 Bucket",
+      "Default": "test-repos-main-dev"
+    },
+    "ReposS3BucketEndpoint": {
+      "Type": "String",
+      "Description": "The Endpoint for Software Repository S3 Bucket, for example, s3-us-west-1.amazonaws.com for S3 Bucket in US California",
+      "Default": "s3-us-west-2.amazonaws.com"
+    },
+    "testVersion": {
+     "Type" : "String",
+     "Description": "Enter the version you want to install, It should be in the format of 1.x.x, 2.x.x or latest",
+     "Default": "latest"
+    }
+  },
+  "Resources": {
+    "AdminRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Action": [
+              "sts:AssumeRole"
+            ],
+            "Principal": {
+              "Service": [
+                "ec2.amazonaws.com"
+              ]
+            },
+            "Effect": "Allow"
+          }]
+        },
+        "Policies": [{
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [{
+              "Action": [
+                "cloudformation:*"
+              ],
+              "Resource": [{
+                "Ref": "AWS::StackId"
+              }, {
+                "Fn::Join": [
+                  "", [{
+                      "Ref": "AWS::StackId"
+                    },
+                    "/*"
+                  ]
+                ]
+              }],
+              "Effect": "Allow"
+            }, {
+              "Resource": "*",
+              "Action": "*",
+              "Effect": "Allow"
+            }, {
+              "Resource": [{
+                "Fn::Join": [
+                  "", [
+                    "arn:aws:s3:::", {
+                      "Ref": "LogArchiveS3Bucket"
+                    }
+                  ]
+                ]
+              }, {
+                "Fn::Join": [
+                  "", [
+                    "arn:aws:s3:::", {
+                      "Ref": "LogArchiveS3Bucket"
+                    },
+                    "/*"
+                  ]
+                ]
+              }, {
+                "Fn::Join": [
+                  "", [
+                    "arn:aws:s3:::", {
+                      "Ref": "ReposS3Bucket"
+                    },
+                    "/*"
+                  ]
+                ]
+              }, {
+                "Fn::Join": [
+                  "", [
+                    "arn:aws:s3:::", {
+                      "Ref": "ReposS3Bucket"
+                    }
+                  ]
+                ]
+              }],
+              "Action": [
+                "s3:*"
+              ],
+              "Effect": "Allow"
+            }]
+          },
+          "PolicyName": "AdminRole"
+        }]
+      }
+    },
+    "AdminInstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [{
+          "Ref": "AdminRole"
+        }]
+      }
+    },
+    "ElasticLoadBalancer" : {
+      "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+        "Properties": {
+          "Subnets" : { "Ref": "PrimarySubnets" },
+          "Name": "test-lb"
+        }
+    },
+    "TargetGroup" : {
+      "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties" : {
+        "HealthCheckIntervalSeconds": 30,
+        "HealthCheckPath": "/xxxx/xxx/xxx",
+        "HealthCheckProtocol": "HTTP",
+        "HealthCheckTimeoutSeconds": 10,
+        "HealthyThresholdCount": 4,
+        "Matcher" : {
+          "HttpCode" : "200"
+        },
+        "Port": 8000,
+        "Protocol": "HTTP",
+        "UnhealthyThresholdCount": 3,
+        "VpcId": {"Ref" : "Vpc"}
+      }
+    },
+    "Listener": {
+      "Type": "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties": {
+        "DefaultActions": [{
+          "Type": "forward",
+          "TargetGroupArn": { "Ref": "TargetGroup" }
+        }],
+        "LoadBalancerArn": { "Ref": "ElasticLoadBalancer" },
+        "Port": "80",
+        "Protocol": "HTTP"
+      }
+    },
+    "TestLaunchConfig": {
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "BlockDeviceMappings": [{
+          "DeviceName": "/dev/sdb",
+          "VirtualName": "ephemeral0"
+        }],
+        "IamInstanceProfile": {
+          "Ref": "AdminInstanceProfile"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "KeyName": {
+          "Ref": "KeyName"
+        },
+        "ImageId": {
+           "Fn::FindInMap": [
+            "RegionToAmi", {
+              "Ref": "AWS::Region"
+            },
+            "stable"
+            ]
+        },
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "\n",
+              [
+                "#!/bin/bash",
+                "sudo yum remove java-1.7.0-openjdk -y",
+                "sudo yum install java-1.8.0 git* postgresql9* -y",
+                "sudo yum update -y",
+                "sudo yum install  -y",
+                "aws s3 cp s3://test/bootstrap-app.sh /home/ec2-user",
+                "sh /home/ec2-user/bootstrap-app.sh"
+              ]
+            ]  
+          }
+        }
+      }    
+    },
+      "MainServerGroup": {
+       "Type": "AWS::AutoScaling::AutoScalingGroup",
+       "Properties": {
+        "Tags": [{
+          "Value": "test",
+          "Key": "role",
+          "PropagateAtLaunch": "true"
+        }],
+        "LaunchConfigurationName": {
+          "Ref": "TestLaunchConfig"
+        },
+        "TargetGroupARNs": [{
+          "Ref": "TargetGroup" 
+        }],
+        "VPCZoneIdentifier": {
+          "Ref": "PrimarySubnets"
+        },
+        "MaxSize": { "Ref": "InstanceCount" },
+        "MinSize": { "Ref": "InstanceCount" },
+        "DesiredCapacity": { "Ref": "InstanceCount" }
+      }
+    },
+    "RDSDB" : {
+     "Type" : "AWS::RDS::DBInstance",
+     "Properties" : {
+       "DBName" : { "Ref": "DBName" },
+       "AllocatedStorage" : { "Ref": "DBAllocatedStorage" },
+       "DBInstanceClass" : { "Ref": "DBInstanceClass" },
+       "DBInstanceIdentifier" : { "Ref": "DBInstanceIdentifier"},
+       "Engine" : "postgres",
+       "EngineVersion" : "9.6.1",
+       "MasterUsername" : { "Ref": "DBUser" },
+       "MasterUserPassword" : { "Ref": "DBPassword" },
+       "Tags" : [{ "Key" : "Name", "Value": "Postgres Database" }],
+       "VPCSecurityGroups" : [{ "Ref": "SecurityGroup" }]
+      },
+      "DeletionPolicy" : "Snapshot"
+    },
+    "TestApi": {
+     "Type": "AWS::ApiGateway::RestApi",
+     "Properties": {
+       "Description": "ttest API",
+       "Name": "Test"
+      }
+    },
+    "HTTPMethod": {
+      "DependsOn": ["testApi", "ElasticLoadBalancer"],
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+         "RestApiId": { "Ref": "TestApi" },
+         "ResourceId": { "Fn::GetAtt": ["TestApi", "RootResourceId"] },
+         "HttpMethod": "GET",
+         "AuthorizationType": "NONE",
+         "Integration" : { 
+           "Type": "HTTP",
+           "IntegrationHttpMethod": "GET",
+           "Uri": { "Fn::Join" : [ "", [ 'http://', { "Fn::GetAtt": ["ElasticLoadBalancer", "DNSName"] }, '/xxxx/xxx/xx' ]] }
+          }
+        }
+    },
+    "Deployment": {
+      "DependsOn": "HTTPMethod",
+      "Type": "AWS::ApiGateway::Deployment",
+      "Properties": {
+        "RestApiId": { "Ref": "TestApi" },
+        "Description": "deploying test api",
+        "StageName": "test"
+      }
+    }         
+  }
+}  
+
+
+
+
+

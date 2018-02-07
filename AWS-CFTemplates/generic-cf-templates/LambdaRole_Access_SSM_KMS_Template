@@ -1,0 +1,28 @@
+{
+   "AWSTemplateFormatVersion": "2010-09-09",
+   "Description": "This Template is to allow lambda role to access SSM and KMS"
+   "Resources": {
+       "ChangeIAM": {
+		   "Type" : "AWS::IAM::Policy",
+		   "Properties" : {
+		      "PolicyName" : "ssm-access",
+		      "PolicyDocument" : {
+		         "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ssm:*",
+                "kms:*"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }  
+    ]
+		      },
+		      "Roles" : [ "<your_lambda_role>" ]
+		   }
+		}
+	}
+}

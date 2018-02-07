@@ -1,0 +1,207 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Launching cuda-mining Infrastructure",
+  "Conditions": {
+    "RegionIsUsEast1": {
+      "Fn::Equals": [{
+          "Ref": "AWS::Region"
+        },
+        "us-east-1"
+      ]
+    }
+  },
+  "Mappings": {
+   "Parameters": {
+      "StackCreationTimeout": {
+        "default": "PT10M"
+      }
+    },
+    "RegionToAmi": {
+      "us-east-1": {
+        "stable": "ami-xxxxxx"
+      }
+    }
+  },
+  "Parameters": {
+    "Vpc": {
+      "Type": "AWS::EC2::VPC::Id",
+      "Description": "Default VPC",
+      "Default": "vpc-xxxxxx"
+    },
+    "PrimarySubnets": {
+      "Type": "List<AWS::EC2::Subnet::Id>",
+      "Description": "Sub networks for EC2 instance & check which subnets are allowed to deploy your instances",
+      "Default": "subnet-xxxxx,subnet-yyyyyy,subnet-zzzzzz"
+    },
+    "SecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup::Id",
+      "Description": "Specify the Security group",
+      "Default": "sg-xxxxxxx"
+    },
+    "InstanceType": {
+      "Type": "String",
+      "Description": "cuda-mining Ec2 Instance like p2's or p3's, refer to ec2instances.info for more details, default t2.micro",
+      "Default": "t2.micro"
+    },
+    "KeyName": {
+      "Description": "Required: Specify your AWS EC2 Key Pair.",
+      "Type": "AWS::EC2::KeyPair::KeyName"
+    },
+    "InstanceCount": {
+      "Description": "Required: Specify the number of ec2 instances or accept the default.",
+      "Type": "Number",
+      "Default": "1"
+    },
+    "CudaS3Bucket": {
+      "Type": "String",
+      "Description": "Software Repository S3 Bucket where your cuda scripts are stored",
+      "Default": "xxxxxxx"
+    },
+    "CudaS3BucketEndpoint": {
+      "Type": "String",
+      "Description": "The Endpoint for Software Repository S3 Bucket, for example, s3-us-west-1.amazonaws.com for S3 Bucket in US California",
+      "Default": "s3-us-east-1.amazonaws.com"
+    },
+    "InstanceSpotPrice": {
+      "Type": "String",
+      "Description": "Spot Price for EC2 instance , I set 0.50$ for p3.2xlarge",
+      "Default": "0.5"
+    }
+  },
+  "Resources": {
+    "AdminRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Action": [
+              "sts:AssumeRole"
+            ],
+            "Principal": {
+              "Service": [
+                "ec2.amazonaws.com"
+              ]
+            },
+            "Effect": "Allow"
+          }]
+        },
+        "Policies": [{
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [{
+              "Action": [
+                "cloudformation:*"
+              ],
+              "Resource": [{
+                "Ref": "AWS::StackId"
+              }, {
+                "Fn::Join": [
+                  "", [{
+                      "Ref": "AWS::StackId"
+                    },
+                    "/*"
+                  ]
+                ]
+              }],
+              "Effect": "Allow"
+            }, {
+              "Resource": "*",
+              "Action": "*",
+              "Effect": "Allow"
+            }, {
+              "Resource": [{
+                "Fn::Join": [
+                  "", [
+                    "arn:aws:s3:::", {
+                      "Ref": "CudaS3Bucket"
+                    }
+                  ]
+                ]
+              }],
+              "Action": [
+                "s3:*"
+              ],
+              "Effect": "Allow"
+            }]
+          },
+          "PolicyName": "AdminRole"
+        }]
+      }
+    },
+    "AdminInstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [{
+          "Ref": "AdminRole"
+        }]
+      }
+    },
+    "MainLaunchConfig": {
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "BlockDeviceMappings": [{
+          "DeviceName": "/dev/sda1",
+          "Ebs": {
+              "VolumeType": "gp2",
+              "Iops": "300",
+              "DeleteOnTermination": "true",
+              "VolumeSize": "50"
+            }
+        }],
+        "IamInstanceProfile": {
+          "Ref": "AdminInstanceProfile"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "SecurityGroups" : [ { "Ref" : "SecurityGroup" } ],
+        "KeyName": {
+          "Ref": "KeyName"
+        },
+        "SpotPrice" :  { "Ref": "InstanceSpotPrice" },
+        "ImageId": {
+           "Fn::FindInMap": [
+            "RegionToAmi", {
+              "Ref": "AWS::Region"
+            },
+            "stable"
+            ]
+        },
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "\n",
+              [
+                "#!/bin/bash",
+                "sudo apt install awscli -y",
+                "aws s3 cp s3://xxxxx/bootstrap-xxxx.sh /home/ubuntu/",
+                "sh /home/ubuntu/bootstrap-xxxxx.sh"
+              ]
+            ]  
+          }
+        }
+      }    
+    },
+      "MainServerGroup": {
+       "Type": "AWS::AutoScaling::AutoScalingGroup",
+       "Properties": {
+        "LaunchConfigurationName": {
+          "Ref": "MainLaunchConfig"
+        },
+        "VPCZoneIdentifier": {
+          "Ref": "PrimarySubnets"
+        },
+        "MaxSize": { "Ref": "InstanceCount" },
+        "MinSize": { "Ref": "InstanceCount" },
+        "DesiredCapacity": { "Ref": "InstanceCount" }
+      }
+    }        
+  }
+}  
+
+
+
+
+
